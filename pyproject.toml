@@ -1,0 +1,53 @@
+[tool.poetry]
+name = "hnread"
+version = "0.1.0"
+description = "A telegram hacker news puslisher"
+authors = ["DPR <dpr-0xff@pm.me>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pydantic = "^1.9.0"
+devtools = "^0.8.0"
+httpx = "^0.22.0"
+python-telegram-bot = "^13.11"
+redis = "^4.2.2"
+types-redis = "^4.2.0"
+python-decouple = "^3.6"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+click = "8.0.4"
+black = "^22.3.0"
+isort = "^5.10.1"
+poetry = "^1.1.12"
+pre-commit = "^2.16.0"
+flake8 = "^4.0.1"
+mypy = "^0.931"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py36', 'py37', 'py38', 'py39', 'py310']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+)
+'''
+
+[tool.isort]
+profile = "black"

@@ -1,0 +1,152 @@
+from abc import ABC, abstractmethod
+from datetime import datetime
+from enum import Enum
+from typing import List, Optional, Union
+
+from pydantic import BaseModel, HttpUrl
+
+
+class Type(str, Enum):
+    """
+    The type of item. One of "job", "story", "comment", "poll", or "pollopt".
+    """
+
+    job = "job"
+    story = "story"
+    comment = "comment"
+    poll = "poll"
+    pollopt = "pollopt"
+
+
+class Item(BaseModel):
+    id: int
+    type: Type
+    by: Optional[str]  # The username of the item's author.
+    time: datetime  # Creation date of the item, in Unix Time.
+
+
+class DeletedItem(Item):
+    deleted: bool  # true if the item is deleted.
+
+
+class DeadItem(Item):
+    dead: bool  # true if the item is dead.
+
+
+class Story(Item):
+    title: str  # The title of the story, poll or job. HTML.
+    descendants: int  # In the case of stories or polls, the total comment count.
+    kids: List[int] = []  # The ids of the item's comments, in ranked display order.
+    score: int  # The story's score, or the votes for a pollopt.
+    url: Optional[HttpUrl]  # The URL of the story.
+    text: Optional[str]
+
+
+class Comment(Item):
+    parent: int  # The comment's parent: either another comment or the relevant story.
+    kids: List[int] = []
+    text: str  # The comment, story or poll text. HTML.
+
+
+class Job(Item):
+    title: str
+    text: Optional[str]
+    url: Optional[HttpUrl]
+    score: int
+
+
+class Poll(Item):
+    title: str
+    text: str
+    descendants: int
+    score: int
+    parts: List[int] = []  # A list of related pollopts, in display order.
+    kids: List[int] = []
+
+
+class PollOpt(Item):
+    poll: int
+    text: str
+    score: int
+
+
+class ObjectNotDefinedError(Exception):
+    pass
+
+
+class ItemFactory:
+    def from_dict(
+        self, data: dict
+    ) -> Union[DeletedItem, DeadItem, Story, Comment, Job, Poll, PollOpt]:
+
+        if data.get("deleted"):
+            return DeletedItem(**data)
+        elif data.get("dead"):
+            return DeadItem(**data)
+
+        item_type = data["type"]
+        if item_type == Type.story:
+            return Story(**data)
+        elif item_type == Type.comment:
+            return Comment(**data)
+        elif item_type == Type.job:
+            return Job(**data)
+        elif item_type == Type.poll:
+            return Poll(**data)
+        elif item_type == Type.pollopt:
+            return PollOpt(**data)
+        else:
+            raise ObjectNotDefinedError(f"{data}")
+
+
+class ItemDisplay(ABC):
+    @abstractmethod
+    def __str__(self) -> str:
+        pass
+
+    @abstractmethod
+    def topic(self) -> str:
+        pass
+
+
+class StoryDisplay(ItemDisplay):
+    def __init__(self, item: Union[Story, Job, Poll]) -> None:
+        self.item = item
+
+    def __str__(self) -> str:
+        points = self.item.score
+        title = self.item.title
+        url = self.url()
+        num_comments = self.num_comments()
+        topic = self.topic()
+        text = (
+            f"{title}\n\n"
+            f"Read: {url}\n"
+            f"Comments: {num_comments} | Points: {points} | Topic: {topic}"
+        )
+        return text
+
+    def url(self) -> str:
+        if (url := getattr(self.item, "url", None)) is not None:
+            return url
+        else:
+            return self.hn_url()
+
+    def hn_url(self) -> str:
+        return f"https://news.ycombinator.com/item?id={self.item.id}"
+
+    def num_comments(self) -> int:
+        if (num_comments := getattr(self.item, "descendants", None)) is not None:
+            return num_comments
+        else:
+            return 0
+
+
+class TopStoryDisplay(StoryDisplay):
+    def topic(self) -> str:
+        return "Top"
+
+
+class BestStoryDisplay(StoryDisplay):
+    def topic(self) -> str:
+        return "Best"
