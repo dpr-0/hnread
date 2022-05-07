@@ -119,10 +119,10 @@ class StoryDisplay(ItemDisplay):
         url = self.url()
         num_comments = self.num_comments()
         topic = self.topic()
+        fixed_width_text = f"{points} points | {num_comments} comments | {topic}"
         text = (
-            f"{title}\n\n"
-            f"Read: {url}\n"
-            f"Comments: {num_comments} | Points: {points} | Topic: {topic}"
+            f'<a href="{url}"><b>{title}</b></a>\n'
+            f'<a href="{self.hn_url()}">{fixed_width_text}</a>\n'
         )
         return text
 

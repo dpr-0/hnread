@@ -40,7 +40,7 @@ class BaseStoriesEventHandler(services.EventHandler):
     ):
         display_text = str(self.get_display_class()(item))
         for subscriber in subscribers:
-            self.bot.send_message(subscriber.id, display_text)
+            self.bot.send_message(subscriber.id, display_text, parse_mode="HTML")
 
 
 class TopStoriesEventHandler(BaseStoriesEventHandler):

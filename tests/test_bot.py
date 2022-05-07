@@ -20,7 +20,7 @@ def test_top_story_display():
 
 def test_top_story_display():
     class MockBot:
-        def send_message(self, id: int, text: str):
+        def send_message(self, id: int, text: str, parse_mode: str):
             assert "Best" in text
 
     handler = BestStoriesEventHandler(MockBot())
