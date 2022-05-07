@@ -38,7 +38,7 @@ class BaseStoriesEventHandler(services.EventHandler):
         subscribers: List[repos.Subscriber],
         item: Union[items.Story, items.Job, items.Poll],
     ):
-        display_text = str(items.TopStoryDisplay(item))
+        display_text = str(self.get_display_class()(item))
         for subscriber in subscribers:
             self.bot.send_message(subscriber.id, display_text)
 
