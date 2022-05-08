@@ -60,7 +60,10 @@ class HNRepository:
         """
         Up to 500 top and new stories
         """
-        return self._get_resource("topstories").json()
+        topstories = self._get_resource("topstories").json()
+        newstories = self.newstories_id()
+        real_topstories = list(set(topstories) - set(newstories))
+        return real_topstories
 
     def newstories_id(self) -> List[int]:
         """ """
