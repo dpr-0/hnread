@@ -119,6 +119,9 @@ class IPubSubRepository(ABC):
     @abstractmethod
     def mark_published(self, ids: List[int]):
         pass
+
+    @abstractmethod
+    def clear_published(self):
         pass
 
     @abstractmethod
@@ -179,6 +182,9 @@ class RedisPubSubRepository(IPubSubRepository):
         if not ids:
             return
         self.r.sadd(self._published_set_key(), *ids)
+
+    def clear_published(self):
+        self.r.delete(self._published_set_key())
 
     def empty_published(self) -> bool:
         return self.r.exists(self._published_set_key()) == 0

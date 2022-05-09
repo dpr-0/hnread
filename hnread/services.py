@@ -17,7 +17,7 @@ class EventHandler(ABC):
         subscribers: List[repos.Subscriber],
         item: Any,
     ):
-    pass
+        pass
 
 
 class HNSubscribeService:
@@ -78,4 +78,6 @@ class NHPublishService:
             handler = self.handlers[topic]
             handler.handle(subscribers, story)
 
-        self.pubsub_repo.mark_published(unpublished_stories_ids)
+        if unpublished_stories:
+            self.pubsub_repo.clear_published()
+            self.pubsub_repo.mark_published(stories_ids)
