@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC
-from typing import Dict, List
-
-from typing_extensions import Self
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List
 
 from . import repos
 from .topics import Topic
@@ -13,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 class EventHandler(ABC):
+    @abstractmethod
+    def handle(
+        self,
+        subscribers: List[repos.Subscriber],
+        item: Any,
+    ):
     pass
 
 
@@ -54,26 +58,22 @@ class NHPublishService:
             Topic.best: self.hn_repo.beststories_id,
         }
 
-    def unpublished_stories_ids(self, topic: Topic) -> List[int]:
-        stories_ids = self.stories[topic]()
-        unpublished_stories_ids = self.pubsub_repo.set_topic(topic).has_not_published(
-            stories_ids
-        )
-        logger.info(
-            f"Found {len(unpublished_stories_ids)} unpublished {topic.name} stories"
-        )
-        return unpublished_stories_ids
-
     def add_handler(self, topic: Topic, handler: EventHandler) -> NHPublishService:
         self.handlers[topic] = handler
         return self
 
     def publish_stories(self, topic: Topic):
-        unpublished_stories_ids = self.unpublished_stories_ids(topic)
-        unpublished_stories = self.hn_repo.ofIds(*unpublished_stories_ids, sort=True)
+        stories_ids = self.stories[topic]()
 
         self.pubsub_repo.set_topic(topic)
+
+        unpublished_stories_ids = self.pubsub_repo.has_not_published(stories_ids)
+        unpublished_stories = self.hn_repo.ofIds(*unpublished_stories_ids, sort=True)
+        logger.info(
+            f"Found {len(unpublished_stories)} unpublished {topic.name} stories"
+        )
         subscribers = self.pubsub_repo.get_subscribers()
+
         for story in unpublished_stories:
             handler = self.handlers[topic]
             handler.handle(subscribers, story)
