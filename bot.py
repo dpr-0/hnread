@@ -239,7 +239,7 @@ def main() -> None:
     )
     job_queue.run_repeating(
         partial(publish_beststories, services=pub_service),
-        interval=timedelta(seconds=30),
+        interval=timedelta(seconds=300),
         name="publish_beststories",
     )
     # Start the Bot

@@ -71,9 +71,11 @@ class NHPublishService:
     def publish_stories(self, topic: Topic):
         unpublished_stories_ids = self.unpublished_stories_ids(topic)
         unpublished_stories = self.hn_repo.ofIds(*unpublished_stories_ids, sort=True)
+
         self.pubsub_repo.set_topic(topic)
         subscribers = self.pubsub_repo.get_subscribers()
         for story in unpublished_stories:
             handler = self.handlers[topic]
             handler.handle(subscribers, story)
-            self.pubsub_repo.mark_published(story.id)
+
+        self.pubsub_repo.mark_published(unpublished_stories_ids)

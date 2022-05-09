@@ -117,7 +117,8 @@ class IPubSubRepository(ABC):
         pass
 
     @abstractmethod
-    def mark_published(self, id: int):
+    def mark_published(self, ids: List[int]):
+        pass
         pass
 
     @abstractmethod
@@ -174,8 +175,10 @@ class RedisPubSubRepository(IPubSubRepository):
         unpublished_selectors = [not b for b in published_selectors]
         return list(compress(ids, unpublished_selectors))
 
-    def mark_published(self, id: int):
-        self.r.sadd(self._published_set_key(), id)
+    def mark_published(self, ids: List[int]):
+        if not ids:
+            return
+        self.r.sadd(self._published_set_key(), *ids)
 
     def empty_published(self) -> bool:
         return self.r.exists(self._published_set_key()) == 0
