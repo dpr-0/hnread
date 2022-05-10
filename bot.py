@@ -25,6 +25,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+BOT_TOKEN = config("BOT_TOKEN")
+REDIS_URL = config("REDIS_URL")
+
 
 class BaseStoriesEventHandler(services.EventHandler):
     def __init__(self, bot: Bot) -> None:
@@ -71,12 +74,11 @@ class UnSubscribeState(IntEnum):
     FIRST = auto()
 
 
-def list_topic(
-    update: Update, context: CallbackContext, services: services.HNSubscribeService
-) -> int:
+def list_topic(update: Update, context: CallbackContext) -> int:
+    sub_service = services.HNSubscribeService(repos.RedisPubSubRepository(REDIS_URL))
     inline_keyboard_bottons = [
         InlineKeyboardButton(text, callback_data=f"{enum}")
-        for enum, text, in services.list_topic().items()
+        for enum, text, in sub_service.list_topic().items()
     ]
     keyboard = [inline_keyboard_bottons]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -86,13 +88,13 @@ def list_topic(
     return SubscribeState.FIRST
 
 
-def list_subscribed_topic(
-    update: Update, context: CallbackContext, services: services.HNSubscribeService
-):
-
+def list_subscribed_topic(update: Update, context: CallbackContext):
+    sub_service = services.HNSubscribeService(repos.RedisPubSubRepository(REDIS_URL))
     inline_keyboard_bottons = [
         InlineKeyboardButton(text, callback_data=f"{enum}")
-        for enum, text in services.list_subscribed_topic(update.message.chat_id).items()
+        for enum, text in sub_service.list_subscribed_topic(
+            update.message.chat_id
+        ).items()
     ]
     keyboard = [inline_keyboard_bottons]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -106,47 +108,57 @@ def list_subscribed_topic(
 def subscribe(
     update: Update,
     context: CallbackContext,
-    services: services.HNSubscribeService,
     topic: Topic,
 ) -> int:
-
     query = update.callback_query
     query.answer()
-    services.subscribe(topic, repos.Subscriber(id=query.message.chat_id))
-    topic_display = services.list_topic()[topic]
-    query.edit_message_text(f"Subscribed Topic: {topic_display} !")
+
+    sub_service = services.HNSubscribeService(repos.RedisPubSubRepository(REDIS_URL))
+    sub_service.subscribe(topic, repos.Subscriber(id=query.message.chat_id))
+
+    query.edit_message_text(f"Subscribed {sub_service.list_topic()[topic]} !")
     return ConversationHandler.END
 
 
 def unsubscribe(
     update: Update,
     context: CallbackContext,
-    services: services.HNSubscribeService,
     topic: Topic,
 ) -> int:
-
     query = update.callback_query
     query.answer()
-    services.unsubscribe(topic, repos.Subscriber(id=query.message.chat_id))
-    topic_display = services.list_topic()[topic]
-    query.edit_message_text(f"Unsubscribed Topic:{topic_display} !")
+
+    sub_service = services.HNSubscribeService(repos.RedisPubSubRepository(REDIS_URL))
+    sub_service.unsubscribe(topic, repos.Subscriber(id=query.message.chat_id))
+
+    query.edit_message_text(f"Unsubscribed {sub_service.list_topic()[topic]} !")
     return ConversationHandler.END
 
 
-def publish_topstories(context: CallbackContext, services: services.NHPublishService):
-    services.publish_stories(Topic.top)
+def publish_topstories(context: CallbackContext):
+    (
+        services.NHPublishService(
+            hn_repo=repos.HNRepository(),
+            pubsub_repo=repos.RedisPubSubRepository(REDIS_URL),
+        )
+        .add_handler(Topic.top, TopStoriesEventHandler(context.bot))
+        .publish_stories(Topic.top)
+    )
 
 
-def publish_beststories(context: CallbackContext, services: services.NHPublishService):
-    services.publish_stories(Topic.best)
+def publish_beststories(context: CallbackContext):
+    (
+        services.NHPublishService(
+            hn_repo=repos.HNRepository(),
+            pubsub_repo=repos.RedisPubSubRepository(REDIS_URL),
+        )
+        .add_handler(Topic.best, BestStoriesEventHandler(context.bot))
+        .publish_stories(Topic.best)
+    )
 
 
 def main() -> None:
-    BOT_TOKEN = config("BOT_TOKEN")
-    REDIS_URL = config("REDIS_URL")
-    sub_service = services.HNSubscribeService(repos.RedisPubSubRepository(REDIS_URL))
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         "--reset_db",
         default=lambda: repos.RedisPubSubRepository(REDIS_URL).flush(),
@@ -154,6 +166,7 @@ def main() -> None:
         action="store_true",
     )
     parser.parse_args()
+
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
 
@@ -173,24 +186,20 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("ping", ping_command))
     dispatcher.add_handler(
         ConversationHandler(
-            entry_points=[
-                CommandHandler("subscribe", partial(list_topic, services=sub_service))
-            ],
+            entry_points=[CommandHandler("subscribe", list_topic)],
             states={
                 SubscribeState.FIRST: [
                     CallbackQueryHandler(
-                        partial(subscribe, services=sub_service, topic=Topic.top),
+                        partial(subscribe, topic=Topic.top),
                         pattern=f"^{Topic.top}$",
                     ),
                     CallbackQueryHandler(
-                        partial(subscribe, services=sub_service, topic=Topic.best),
+                        partial(subscribe, topic=Topic.best),
                         pattern=f"^{Topic.best}$",
                     ),
                 ]
             },
-            fallbacks=[
-                CommandHandler("subscribe", partial(list_topic, services=sub_service))
-            ],
+            fallbacks=[CommandHandler("subscribe", list_topic)],
         )
     )
     dispatcher.add_handler(
@@ -198,17 +207,17 @@ def main() -> None:
             entry_points=[
                 CommandHandler(
                     "list_subscribed",
-                    partial(list_subscribed_topic, services=sub_service),
+                    list_subscribed_topic,
                 )
             ],
             states={
                 UnSubscribeState.FIRST: [
                     CallbackQueryHandler(
-                        partial(unsubscribe, services=sub_service, topic=Topic.top),
+                        partial(unsubscribe, topic=Topic.top),
                         pattern=f"^{Topic.top}$",
                     ),
                     CallbackQueryHandler(
-                        partial(unsubscribe, services=sub_service, topic=Topic.best),
+                        partial(unsubscribe, topic=Topic.best),
                         pattern=f"^{Topic.best}$",
                     ),
                 ]
@@ -216,7 +225,7 @@ def main() -> None:
             fallbacks=[
                 CommandHandler(
                     "list_subscribed",
-                    partial(list_subscribed_topic, services=sub_service),
+                    list_subscribed_topic,
                 )
             ],
         )
@@ -233,13 +242,13 @@ def main() -> None:
 
     job_queue = updater.job_queue
     job_queue.run_repeating(
-        partial(publish_topstories, services=pub_service),
+        publish_topstories,
         interval=timedelta(seconds=30),
         name="publish_topstories",
     )
     job_queue.run_repeating(
-        partial(publish_beststories, services=pub_service),
-        interval=timedelta(seconds=300),
+        publish_beststories,
+        interval=timedelta(seconds=30),
         name="publish_beststories",
     )
     # Start the Bot
