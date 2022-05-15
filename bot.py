@@ -157,6 +157,15 @@ def publish_beststories(context: CallbackContext):
     )
 
 
+def clear_old_published(context: CallbackContext):
+    background_serv = services.BackgroundService(
+        hn_repo=repos.HNRepository(),
+        pubsub_repo=repos.RedisPubSubRepository(REDIS_URL),
+    )
+    for topic in Topic:
+        background_serv.reduce_published_set_size(topic)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -171,11 +180,9 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
 
     updater = Updater(BOT_TOKEN)
-    bot = updater.bot
 
     updater.bot.set_my_commands(
         [
-            # BotCommand("help", "help"),
             BotCommand("ping", "ping"),
             BotCommand("subscribe", "subscribe topics"),
             BotCommand("list_subscribed", "list subscribed topics"),
@@ -231,25 +238,21 @@ def main() -> None:
         )
     )
 
-    pub_service = (
-        services.NHPublishService(
-            hn_repo=repos.HNRepository(),
-            pubsub_repo=repos.RedisPubSubRepository(REDIS_URL),
-        )
-        .add_handler(Topic.top, TopStoriesEventHandler(bot))
-        .add_handler(Topic.best, BestStoriesEventHandler(bot))
-    )
-
     job_queue = updater.job_queue
     job_queue.run_repeating(
         publish_topstories,
-        interval=timedelta(seconds=30),
+        interval=timedelta(seconds=60),
         name="publish_topstories",
     )
     job_queue.run_repeating(
         publish_beststories,
-        interval=timedelta(seconds=30),
+        interval=timedelta(seconds=360),
         name="publish_beststories",
+    )
+    job_queue.run_repeating(
+        clear_old_published,
+        interval=timedelta(days=1),
+        name="clear_old_published",
     )
     # Start the Bot
     updater.start_polling()

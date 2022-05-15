@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from . import repos
+from . import items, repos
 from .topics import Topic
 
 logger = logging.getLogger(__name__)
@@ -78,6 +78,22 @@ class NHPublishService:
             handler = self.handlers[topic]
             handler.handle(subscribers, story)
 
-        if unpublished_stories:
-            self.pubsub_repo.clear_published()
-            self.pubsub_repo.mark_published(stories_ids)
+        self.pubsub_repo.mark_published(unpublished_stories_ids)
+
+
+class BackgroundService:
+    def __init__(
+        self, hn_repo: repos.HNRepository, pubsub_repo: repos.IPubSubRepository
+    ) -> None:
+        self.hn_repo = hn_repo
+        self.pubsub_repo = pubsub_repo
+
+    def reduce_published_set_size(self, topic: Topic):
+        self.pubsub_repo.set_topic(topic)
+        ids = self.pubsub_repo.get_published()
+        abandoned_items = items.PublishedItems(
+            self.hn_repo.ofIds(*ids)
+        ).abandoned_items()
+        if abandoned_items:
+            logger.info(f"Reduce {len(abandoned_items)} {topic} published items")
+            self.pubsub_repo.delete_published([i.id for i in abandoned_items])

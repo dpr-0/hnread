@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import List, Optional, Union
 
@@ -97,6 +97,19 @@ class ItemFactory:
             return PollOpt(**data)
         else:
             raise ObjectNotDefinedError(f"{data}")
+
+
+class PublishedItems:
+    def __init__(self, items: List[Item]) -> None:
+        self.items = sorted(items, key=lambda items: items.time)
+
+    def abandoned_items(self) -> List[Item]:
+        res = []
+        for item in self.items:
+            if datetime.now(timezone.utc) - item.time < timedelta(days=5):
+                break
+            res.append(item)
+        return res
 
 
 class ItemDisplay(ABC):

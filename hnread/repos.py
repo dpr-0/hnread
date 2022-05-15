@@ -109,6 +109,14 @@ class IPubSubRepository(ABC):
         pass
 
     @abstractmethod
+    def get_published(self) -> List[int]:
+        pass
+
+    @abstractmethod
+    def delete_published(self, ids: List[int]):
+        pass
+
+    @abstractmethod
     def has_published(self, ids: List[int]) -> List[int]:
         pass
 
@@ -150,9 +158,6 @@ class RedisPubSubRepository(IPubSubRepository):
         self.topic = topic
         self.r = redis.Redis.from_url(url)
 
-    def flush(self):
-        self.r.flushdb()
-
     def _published_set_key(self) -> str:
         return f"{self.topic}:published"
 
@@ -162,12 +167,23 @@ class RedisPubSubRepository(IPubSubRepository):
     def _user_subscribed_topics_list_key(self, id: int) -> str:
         return f"chat_id:{id}:subscribed:topics"
 
+    def _has_published(self, ids: List[int]) -> List[bool]:
+        return self.r.smismember(self._published_set_key(), ids)
+
     def set_topic(self, topic: Topic) -> RedisPubSubRepository:
         self.topic = topic
         return self
 
-    def _has_published(self, ids: List[int]) -> List[bool]:
-        return self.r.smismember(self._published_set_key(), ids)
+    def flush(self):
+        self.r.flushdb()
+
+    def get_published(self) -> List[int]:
+        return [int(i.decode()) for i in self.r.smembers(self._published_set_key())]
+
+    def delete_published(self, ids: List[int]):
+        if not ids:
+            return
+        self.r.srem(self._published_set_key(), *ids)
 
     def has_published(self, ids: List[int]) -> List[int]:
         published_selectors = self._has_published(ids)
