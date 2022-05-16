@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from . import items, repos
@@ -69,6 +70,13 @@ class NHPublishService:
 
         unpublished_stories_ids = self.pubsub_repo.has_not_published(stories_ids)
         unpublished_stories = self.hn_repo.ofIds(*unpublished_stories_ids, sort=True)
+        unpublished_stories = list(
+            filter(
+                lambda item: datetime.now(timezone.utc) - item.time
+                <= timedelta(days=1),
+                unpublished_stories,
+            )
+        )
         logger.info(
             f"Found {len(unpublished_stories)} unpublished {topic.name} stories"
         )

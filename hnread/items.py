@@ -132,7 +132,10 @@ class StoryDisplay(ItemDisplay):
         url = self.url()
         num_comments = self.num_comments()
         topic = self.topic()
-        fixed_width_text = f"{points} points | {num_comments} comments | {topic}"
+
+        fixed_width_text = (
+            f"{points} points | {num_comments} comments | {topic} | {self.time_age()}"
+        )
         text = (
             f'<a href="{url}"><b>{title}</b></a>\n'
             f'<a href="{self.hn_url()}">{fixed_width_text}</a>\n'
@@ -153,6 +156,19 @@ class StoryDisplay(ItemDisplay):
             return num_comments
         else:
             return 0
+
+    def time_age(self) -> str:
+        time_ago = datetime.now(tz=timezone.utc) - self.item.time
+        hours = time_ago.seconds // 3600
+        if time_ago.days > 1:
+            return f"{time_ago.days} days ago"
+        elif time_ago.days == 1:
+            return f"{time_ago.days} day ago"
+        elif hours > 1:
+            return f"{hours} hours ago"
+        elif hours == 1:
+            return f"{hours} hour ago"
+        return ""
 
 
 class TopStoryDisplay(StoryDisplay):
