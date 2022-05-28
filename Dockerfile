@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
-FROM python:3.9-slim-buster
+FROM python:3.10-slim-buster
 WORKDIR /app
-COPY bot.py hnread ./
+COPY bot.py pyproject.toml ./
+COPY hnread ./hnread
 RUN pip install "poetry==1.1.13" --no-cache-dir \
     && poetry config virtualenvs.create false \
     && poetry install --no-dev --no-root --no-interaction --no-ansi \
