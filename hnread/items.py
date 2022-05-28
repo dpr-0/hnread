@@ -57,7 +57,7 @@ class Job(Item):
 
 class Poll(Item):
     title: str
-    text: str
+    text: Optional[str]
     descendants: int
     score: int
     parts: List[int] = []  # A list of related pollopts, in display order.
