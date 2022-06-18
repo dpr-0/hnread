@@ -33,11 +33,17 @@ class DeadItem(Item):
     dead: bool  # true if the item is dead.
 
 
-class Story(Item):
+class ScoreableItem(Item):
+    score: int  # The story's score, or the votes for a pollopt.
+
+    def __gt__(self, other: "ScoreableItem"):
+        return self.time > other.time
+
+
+class Story(ScoreableItem):
     title: str  # The title of the story, poll or job. HTML.
     descendants: int  # In the case of stories or polls, the total comment count.
     kids: List[int] = []  # The ids of the item's comments, in ranked display order.
-    score: int  # The story's score, or the votes for a pollopt.
     url: Optional[HttpUrl]  # The URL of the story.
     text: Optional[str]
 
@@ -48,18 +54,16 @@ class Comment(Item):
     text: str  # The comment, story or poll text. HTML.
 
 
-class Job(Item):
+class Job(ScoreableItem):
     title: str
     text: Optional[str]
     url: Optional[HttpUrl]
-    score: int
 
 
-class Poll(Item):
+class Poll(ScoreableItem):
     title: str
     text: Optional[str]
     descendants: int
-    score: int
     parts: List[int] = []  # A list of related pollopts, in display order.
     kids: List[int] = []
 

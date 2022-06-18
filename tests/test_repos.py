@@ -1,8 +1,11 @@
 from unittest import IsolatedAsyncioTestCase, TestCase
 
+import pytest
+
 from hnread import repos
 
 
+@pytest.mark.slow
 class HNRepositoryTest(TestCase):
     def setUp(self) -> None:
         self.repo = repos.HNRepository()
@@ -34,6 +37,7 @@ class HNRepositoryTest(TestCase):
         assert self.repo.updates_id()
 
 
+@pytest.mark.slow
 class HNRepositoryAsyncTest(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.repo = repos.HNRepository()

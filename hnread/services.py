@@ -5,10 +5,16 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-from . import items, repos
+from . import filters, items, repos
 from .topics import Topic
 
 logger = logging.getLogger(__name__)
+
+
+def filter_only_scoreable(
+    stories: List[Any],
+) -> List[items.ScoreableItem]:
+    return list(filter(lambda x: hasattr(x, "score"), stories))
 
 
 class EventHandler(ABC):
@@ -49,10 +55,14 @@ class HNSubscribeService:
 
 class NHPublishService:
     def __init__(
-        self, hn_repo: repos.HNRepository, pubsub_repo: repos.IPubSubRepository
+        self,
+        hn_repo: repos.HNRepository,
+        pubsub_repo: repos.IPubSubRepository,
+        filters: filters.AbstractFilter,
     ) -> None:
         self.hn_repo = hn_repo
         self.pubsub_repo = pubsub_repo
+        self.filter = filters
         self.handlers: Dict[Topic, EventHandler] = {}
         self.stories = {
             Topic.top: self.hn_repo.topstories_id,
@@ -77,16 +87,20 @@ class NHPublishService:
                 unpublished_stories,
             )
         )
-        logger.info(
-            f"Found {len(unpublished_stories)} unpublished {topic.name} stories"
+
+        unpublished_scoreable_stories = self.filter(
+            filter_only_scoreable(unpublished_stories)
         )
+
+        logger.info(f"Found {len(unpublished_scoreable_stories)} {topic.name} stories")
+
         subscribers = self.pubsub_repo.get_subscribers()
 
-        for story in unpublished_stories:
+        for story in unpublished_scoreable_stories:
             handler = self.handlers[topic]
             handler.handle(subscribers, story)
 
-        self.pubsub_repo.mark_published(unpublished_stories_ids)
+        self.pubsub_repo.mark_published([s.id for s in unpublished_scoreable_stories])
 
 
 class BackgroundService:

@@ -15,7 +15,7 @@ from telegram.ext import (
     Updater,
 )
 
-from hnread import items, repos, services
+from hnread import filters, items, repos, services
 from hnread.topics import Topic
 
 # Enable logging
@@ -140,6 +140,7 @@ def publish_topstories(context: CallbackContext):
         services.NHPublishService(
             hn_repo=repos.HNRepository(),
             pubsub_repo=repos.RedisPubSubRepository(REDIS_URL),
+            filters=filters.norm_filter,
         )
         .add_handler(Topic.top, TopStoriesEventHandler(context.bot))
         .publish_stories(Topic.top)
@@ -151,6 +152,7 @@ def publish_beststories(context: CallbackContext):
         services.NHPublishService(
             hn_repo=repos.HNRepository(),
             pubsub_repo=repos.RedisPubSubRepository(REDIS_URL),
+            filters=filters.norm_filter,
         )
         .add_handler(Topic.best, BestStoriesEventHandler(context.bot))
         .publish_stories(Topic.best)
